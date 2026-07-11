@@ -39,6 +39,24 @@ class IndicatorCreate(IndicatorBase):
     pass
 
 
+class IndicatorUpdate(BaseModel):
+    category: IndicatorCategory | None = None
+    name: str | None = None
+    description: str | None = None
+    formula: str | None = None
+    unit: str | None = None
+    color: str | None = None
+    icon: str | None = None
+    supported_dataset: str | None = None
+    default_resolution: str | None = None
+    color_palette: str | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+    documentation: str | None = None
+    applications: str | None = None
+    is_active: bool | None = None
+
+
 class IndicatorResponse(IndicatorBase):
     id: int
     created_at: datetime

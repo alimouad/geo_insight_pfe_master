@@ -3,7 +3,7 @@
     <div class="w-full h-screen bg-white rounded-3xl shadow-2xl flex overflow-hidden">
       <SideBar />
 
-      <main class="flex-1 p-6 flex flex-col h-[80vh] bg-slate-50">
+      <main class="flex-1 p-6 flex flex-col h-[100vh] bg-slate-100/70">
         <Header :title="title" :subtitle="subtitle">
           <template #actions>
             <slot name="actions" />

@@ -37,6 +37,16 @@ class DatasetCreate(DatasetBase):
     pass
 
 
+class DatasetUpdate(BaseModel):
+    name: str | None = None
+    provider: DatasetProvider | None = None
+    gee_collection: str | None = None
+    description: str | None = None
+    resolution: str | None = None
+    category: DatasetCategory | None = None
+    is_active: bool | None = None
+
+
 class DatasetResponse(DatasetBase):
     id: int
     created_at: datetime

@@ -38,3 +38,6 @@ class ProjectResponse(ProjectBase):
 
     class Config:
         from_attributes = True
+
+    class Config:
+        from_attributes = True

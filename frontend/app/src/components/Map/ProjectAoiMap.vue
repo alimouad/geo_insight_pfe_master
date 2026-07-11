@@ -2,8 +2,8 @@
   <div class="relative">
     <LMap :zoom="zoom" :center="center" :useGlobalLeaflet="false" class="h-full w-full">
       <LTileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&copy; OpenStreetMap contributors"
+        :url="basemap.url"
+        :attribution="basemap.attribution"
       />
       <LTileLayer v-if="overlayUrl" :url="overlayUrl" :opacity="0.75" />
       <LPolygon
@@ -22,7 +22,9 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
 import { LMap, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet'
+import { usePreferencesStore } from '@/stores/preferences'
 
 defineProps({
   center: { type: Array, required: true },
@@ -30,4 +32,8 @@ defineProps({
   zoom: { type: Number, default: 11 },
   overlayUrl: { type: String, default: null },
 })
+
+const preferences = usePreferencesStore()
+onMounted(() => preferences.load())
+const basemap = computed(() => preferences.basemap)
 </script>

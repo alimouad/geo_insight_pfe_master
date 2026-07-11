@@ -1,21 +1,37 @@
 <template>
   <div class="h-full w-full">
-    <LMap :zoom="6" :center="[31.5, -6.5]" :useGlobalLeaflet="true" class="h-full w-full" @ready="onMapReady">
-      <LTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+    <LMap :zoom="6" :center="[31.5, -6.5]" :useGlobalLeaflet="false" class="h-full w-full" @ready="onMapReady">
+      <LTileLayer :url="basemap.url" :attribution="basemap.attribution" />
     </LMap>
   </div>
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
 import { LMap, LTileLayer } from '@vue-leaflet/vue-leaflet'
-import L from 'leaflet'
+import L from '@/utils/leaflet-global'
 import 'leaflet-draw'
 import 'leaflet-draw/dist/leaflet.draw.css'
 import { polygonAreaHectares } from '@/utils/geo'
+import { usePreferencesStore } from '@/stores/preferences'
 
 const emit = defineEmits(['change'])
 
+const preferences = usePreferencesStore()
+onMounted(() => preferences.load())
+const basemap = computed(() => preferences.basemap)
+
 function onMapReady(map) {
+  // The map can initialize before its container has settled its final size
+  // (e.g. inside a flex/tab layout), which leaves Leaflet rendering into a
+  // 0x0 box that never repaints. Force a resize check once mounted, and
+  // keep watching the container in case the layout shifts afterwards.
+  requestAnimationFrame(() => map.invalidateSize())
+  setTimeout(() => map.invalidateSize(), 250)
+
+  const resizeObserver = new ResizeObserver(() => map.invalidateSize())
+  resizeObserver.observe(map.getContainer())
+
   const drawnItems = new L.FeatureGroup()
   map.addLayer(drawnItems)
 

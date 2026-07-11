@@ -15,6 +15,7 @@ import Favorites from '@/views/Favorites/Favorites.vue';
 import Profile from '@/views/Profile/Profile.vue';
 import Settings from '@/views/Settings/Settings.vue';
 import Logout from '@/views/Auth/Logout.vue';
+import AdminPanel from '@/views/Admin/AdminPanel.vue';
 
 
 
@@ -105,6 +106,11 @@ const router = createRouter({
             path: '/logout',
             name: 'logout',
             component: Logout,
+        },
+        {
+            path: '/admin',
+            name: 'admin',
+            component: AdminPanel,
         },
         {
             path: '/:pathMatch(.*)*',

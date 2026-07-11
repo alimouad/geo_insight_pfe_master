@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token, hash_password, verify_password
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import UserResponse
 
 router = APIRouter()
@@ -23,6 +23,20 @@ class PasswordChangeRequest(BaseModel):
     new_password: str
 
 
+class PreferencesResponse(BaseModel):
+    theme: str
+    language: str
+    default_basemap: str
+    default_projection: str
+
+
+class PreferencesUpdateRequest(BaseModel):
+    theme: str | None = None
+    language: str | None = None
+    default_basemap: str | None = None
+    default_projection: str | None = None
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
@@ -36,6 +50,12 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
 
     return user
+
+
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+    return current_user
 
 
 @router.get("/me", response_model=UserResponse)
@@ -72,3 +92,28 @@ def change_password(
 
     current_user.hashed_password = hash_password(payload.new_password)
     db.commit()
+
+
+@router.get("/preferences", response_model=PreferencesResponse)
+def read_preferences(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.put("/preferences", response_model=PreferencesResponse)
+def update_preferences(
+    payload: PreferencesUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.theme is not None:
+        current_user.theme = payload.theme
+    if payload.language is not None:
+        current_user.language = payload.language
+    if payload.default_basemap is not None:
+        current_user.default_basemap = payload.default_basemap
+    if payload.default_projection is not None:
+        current_user.default_projection = payload.default_projection
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user

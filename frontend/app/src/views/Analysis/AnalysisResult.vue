@@ -1,6 +1,15 @@
 <template>
   <WorkspaceShell :title="analysis ? analysis.name : 'Analysis Result'" subtitle="Result of the geospatial analysis run on Google Earth Engine.">
     <template #actions>
+      <button
+        v-if="analysis"
+        class="rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-60"
+        :class="isFavorited ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-slate-100 bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50'"
+        :disabled="isTogglingFavorite"
+        @click="toggleFavorite()"
+      >
+        {{ isFavorited ? '★ Favorited' : '☆ Save' }}
+      </button>
       <button class="rounded-xl border border-slate-100 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-200 hover:bg-slate-50" @click="router.push(`/projects/${route.params.projectId}`)">
         ← Back to Project
       </button>
@@ -156,6 +165,8 @@ const router = useRouter()
 const analysis = ref(null)
 const isLoading = ref(true)
 const errorMessage = ref('')
+const isFavorited = ref(false)
+const isTogglingFavorite = ref(false)
 
 async function fetchAnalysis() {
   isLoading.value = true
@@ -170,7 +181,36 @@ async function fetchAnalysis() {
   }
 }
 
-onMounted(fetchAnalysis)
+async function fetchFavoriteState() {
+  try {
+    const { data } = await api.get('favorites')
+    isFavorited.value = data.some((f) => f.analysis_id === Number(route.params.analysisId))
+  } catch {
+    // non-critical — the Save button just won't reflect an initial state
+  }
+}
+
+async function toggleFavorite() {
+  isTogglingFavorite.value = true
+  try {
+    if (isFavorited.value) {
+      await api.delete(`favorites/by-analysis/${route.params.analysisId}`)
+      isFavorited.value = false
+    } else {
+      await api.post('favorites', { analysis_id: Number(route.params.analysisId) })
+      isFavorited.value = true
+    }
+  } catch (error) {
+    errorMessage.value = error.response?.data?.detail || 'Unable to update favorite.'
+  } finally {
+    isTogglingFavorite.value = false
+  }
+}
+
+onMounted(() => {
+  fetchAnalysis()
+  fetchFavoriteState()
+})
 
 const mapCenter = computed(() => {
   if (!analysis.value?.aoi) return [31.5, -6.5]

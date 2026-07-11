@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.app_settings import AppSettings
 from app.models.dataset import Dataset, DatasetCategory, DatasetProvider
 from app.models.indicator import Indicator, IndicatorCategory
 
@@ -174,5 +175,8 @@ def seed_catalog(db: Session) -> None:
         else:
             for key, value in indicator_data.items():
                 setattr(existing, key, value)
+
+    if db.query(AppSettings).count() == 0:
+        db.add(AppSettings())
 
     db.commit()

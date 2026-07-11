@@ -1,5 +1,5 @@
 <template>
-  <aside class="w-[72px] bg-white border-r border-slate-100 flex flex-col justify-between py-6">
+  <aside class="w-[72px] bg-white border-r border-slate-200 flex flex-col justify-between py-6">
     <div class="flex flex-col items-center">
       <!-- Logo -->
       <router-link to="/dashboard" class="w-10 h-10 rounded-full bg-[#6366f1] flex items-center justify-center text-white shadow-lg shadow-[#6366f1]/20 mb-8 cursor-pointer">
@@ -30,6 +30,21 @@
 
     <!-- Bottom Actions -->
     <div class="flex flex-col items-center gap-2 w-full px-2">
+      <router-link
+        v-if="auth.isAdmin"
+        to="/admin"
+        title="Admin Panel"
+        class="group relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
+        :class="route.path.startsWith('/admin') ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-amber-500 hover:bg-amber-50'"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l1.912 3.874 4.276.622-3.094 3.016.73 4.259L12 12.75l-3.824 2.021.73-4.26-3.094-3.015 4.276-.622L12 3z" />
+        </svg>
+        <span class="pointer-events-none absolute left-14 z-10 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+          Admin Panel
+        </span>
+      </router-link>
+
       <router-link
         v-for="item in bottomItems"
         :key="item.to"
@@ -63,9 +78,13 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
+onMounted(() => auth.load())
 
 const navItems = [
   {
