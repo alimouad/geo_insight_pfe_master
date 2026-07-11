@@ -14,6 +14,16 @@
       </div>
 
       <template v-else-if="analysisA && analysisB">
+        <div class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Comparison Span</p>
+              <p class="mt-1 text-lg font-bold text-slate-900">{{ spanLabel }}</p>
+            </div>
+            <span class="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-bold text-[#4f46e5]">{{ spanYears }} apart</span>
+          </div>
+        </div>
+
         <div class="grid gap-6 md:grid-cols-2">
           <div v-for="(a, i) in [analysisA, analysisB]" :key="a.id" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between">
@@ -33,13 +43,24 @@
         </div>
 
         <div v-if="analysisA.status !== 'Failed' && analysisB.status !== 'Failed'" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 class="text-lg font-bold text-slate-900">Change</h2>
-          <p class="mt-1 text-sm text-slate-500">Difference between Period B and Period A (mean value).</p>
-          <div class="mt-4 flex items-center gap-3">
-            <span class="text-3xl font-black tabular-nums" :class="delta >= 0 ? 'text-emerald-600' : 'text-rose-600'">
-              {{ delta >= 0 ? '+' : '' }}{{ delta.toFixed(3) }}
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Change</h2>
+              <p class="mt-1 text-sm text-slate-500">Metric-by-metric difference between Period B and Period A.</p>
+            </div>
+            <span v-if="overallTrend" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold" :class="overallTrend.badgeClass">
+              {{ overallTrend.arrow }} {{ overallTrend.label }} ({{ overallTrend.percent }}%)
             </span>
-            <span class="text-sm text-slate-500">({{ analysisA.stats.mean.toFixed(3) }} → {{ analysisB.stats.mean.toFixed(3) }})</span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div v-for="row in metricDeltas" :key="row.label" class="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-center">
+              <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{{ row.label }}</p>
+              <p class="mt-1 text-lg font-black tabular-nums" :class="row.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                {{ row.delta >= 0 ? '+' : '' }}{{ row.delta.toFixed(3) }}
+              </p>
+              <p class="mt-0.5 text-[11px] text-slate-400">{{ row.from.toFixed(3) }} → {{ row.to.toFixed(3) }}</p>
+            </div>
           </div>
         </div>
 
@@ -88,9 +109,50 @@ async function fetchComparison() {
 
 onMounted(fetchComparison)
 
-const delta = computed(() => {
-  if (!analysisA.value?.stats || !analysisB.value?.stats) return 0
-  return analysisB.value.stats.mean - analysisA.value.stats.mean
+const spanYears = computed(() => {
+  if (!analysisA.value || !analysisB.value) return '—'
+  const days = Math.abs(new Date(analysisB.value.start_date) - new Date(analysisA.value.start_date)) / (1000 * 60 * 60 * 24)
+  const years = days / 365.25
+  if (years >= 0.9) return `${Math.round(years)} year${Math.round(years) === 1 ? '' : 's'}`
+  const months = Math.round(days / 30.44)
+  return `${months} month${months === 1 ? '' : 's'}`
+})
+
+const spanLabel = computed(() => {
+  if (!analysisA.value || !analysisB.value) return '—'
+  const days = Math.abs(new Date(analysisB.value.start_date) - new Date(analysisA.value.start_date)) / (1000 * 60 * 60 * 24)
+  const years = days / 365.25
+  if (years >= 9.5) return 'Decadal Comparison'
+  if (years >= 0.9) return 'Annual Comparison'
+  return 'Custom Period Comparison'
+})
+
+const METRIC_LABELS = [
+  { key: 'mean', label: 'Mean' },
+  { key: 'min', label: 'Min' },
+  { key: 'max', label: 'Max' },
+  { key: 'median', label: 'Median' },
+]
+
+const metricDeltas = computed(() => {
+  if (!analysisA.value?.stats || !analysisB.value?.stats) return []
+  return METRIC_LABELS.filter((m) => typeof analysisA.value.stats[m.key] === 'number' && typeof analysisB.value.stats[m.key] === 'number').map((m) => ({
+    label: m.label,
+    from: analysisA.value.stats[m.key],
+    to: analysisB.value.stats[m.key],
+    delta: analysisB.value.stats[m.key] - analysisA.value.stats[m.key],
+  }))
+})
+
+const overallTrend = computed(() => {
+  if (!analysisA.value?.stats || !analysisB.value?.stats) return null
+  const from = analysisA.value.stats.mean
+  const to = analysisB.value.stats.mean
+  const diff = to - from
+  const percent = from !== 0 ? ((diff / Math.abs(from)) * 100).toFixed(1) : diff.toFixed(1)
+  if (Math.abs(diff) < 1e-9) return { arrow: '→', label: 'Stable', percent: '0.0', badgeClass: 'bg-slate-100 text-slate-600' }
+  if (diff > 0) return { arrow: '↑', label: 'Increasing', percent, badgeClass: 'bg-emerald-50 text-emerald-700' }
+  return { arrow: '↓', label: 'Decreasing', percent, badgeClass: 'bg-rose-50 text-rose-600' }
 })
 
 function statCards(a) {

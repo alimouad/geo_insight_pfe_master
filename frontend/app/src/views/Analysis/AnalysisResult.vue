@@ -68,9 +68,32 @@
           </div>
 
           <div v-if="timeseriesData" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-slate-900">Time Series</h2>
-            <p class="mt-1 text-sm text-slate-500">Mean value over sub-periods within the date range.</p>
-            <div class="mt-4 h-56">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 class="text-lg font-bold text-slate-900">Time Series</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ selectedIndicatorLabel }} over sub-periods within the date range.</p>
+              </div>
+              <span v-if="trendSummary" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold" :class="trendSummary.badgeClass">
+                {{ trendSummary.arrow }} {{ trendSummary.label }} ({{ trendSummary.percent }}%)
+              </span>
+            </div>
+
+            <div class="mt-4 grid grid-cols-3 gap-2 text-center sm:grid-cols-3">
+              <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5">
+                <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Series Min</p>
+                <p class="mt-1 text-sm font-black tabular-nums text-slate-900">{{ timeseriesStats.min }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5">
+                <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Series Mean</p>
+                <p class="mt-1 text-sm font-black tabular-nums text-slate-900">{{ timeseriesStats.mean }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5">
+                <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Series Max</p>
+                <p class="mt-1 text-sm font-black tabular-nums text-slate-900">{{ timeseriesStats.max }}</p>
+              </div>
+            </div>
+
+            <div class="mt-4 h-64">
               <Line :data="timeseriesData" :options="timeseriesOptions" />
             </div>
           </div>
@@ -152,12 +175,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bar, Line } from 'vue-chartjs'
-import { Chart, BarElement, BarController, LineElement, LineController, PointElement, CategoryScale, LinearScale, Tooltip } from 'chart.js'
+import { Chart, BarElement, BarController, LineElement, LineController, PointElement, CategoryScale, LinearScale, Tooltip, Filler } from 'chart.js'
 import WorkspaceShell from '@/components/Layout/WorkspaceShell.vue'
 import ProjectAoiMap from '@/components/Map/ProjectAoiMap.vue'
 import api from '@/services/api'
 
-Chart.register(BarElement, BarController, LineElement, LineController, PointElement, CategoryScale, LinearScale, Tooltip)
+Chart.register(BarElement, BarController, LineElement, LineController, PointElement, CategoryScale, LinearScale, Tooltip, Filler)
 
 const route = useRoute()
 const router = useRouter()
@@ -253,13 +276,80 @@ const histogramOptions = { responsive: true, maintainAspectRatio: false, plugins
 const timeseriesData = computed(() => {
   const timeseries = analysis.value?.stats?.timeseries
   if (!timeseries || !timeseries.length) return null
+  const values = timeseries.map((p) => p.value)
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length
   return {
-    labels: timeseries.map((p) => p.date),
-    datasets: [{ label: selectedIndicatorLabel.value, data: timeseries.map((p) => p.value), borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0.3 }],
+    labels: timeseries.map((p) => formatShortDate(p.date)),
+    datasets: [
+      {
+        label: selectedIndicatorLabel.value,
+        data: values,
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+        pointBackgroundColor: '#6366f1',
+        pointRadius: 3,
+        tension: 0.35,
+        fill: true,
+      },
+      {
+        label: 'Mean',
+        data: values.map(() => mean),
+        borderColor: '#94a3b8',
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+      },
+    ],
   }
 })
 
-const timeseriesOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+const timeseriesOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(3)}`,
+      },
+    },
+  },
+  scales: {
+    y: { ticks: { callback: (v) => Number(v).toFixed(2) } },
+  },
+}
+
+const timeseriesStats = computed(() => {
+  const timeseries = analysis.value?.stats?.timeseries
+  const fmt = (v) => (typeof v === 'number' ? v.toFixed(3) : '—')
+  if (!timeseries || !timeseries.length) return { min: '—', max: '—', mean: '—' }
+  const values = timeseries.map((p) => p.value)
+  return {
+    min: fmt(Math.min(...values)),
+    max: fmt(Math.max(...values)),
+    mean: fmt(values.reduce((sum, v) => sum + v, 0) / values.length),
+  }
+})
+
+const trendSummary = computed(() => {
+  const timeseries = analysis.value?.stats?.timeseries
+  if (!timeseries || timeseries.length < 2) return null
+  const first = timeseries[0].value
+  const last = timeseries[timeseries.length - 1].value
+  const diff = last - first
+  const percent = first !== 0 ? ((diff / Math.abs(first)) * 100).toFixed(1) : diff.toFixed(1)
+  if (Math.abs(diff) < 1e-9) return { arrow: '→', label: 'Stable', percent: '0.0', badgeClass: 'bg-slate-100 text-slate-600' }
+  if (diff > 0) return { arrow: '↑', label: 'Increasing', percent, badgeClass: 'bg-emerald-50 text-emerald-700' }
+  return { arrow: '↓', label: 'Decreasing', percent, badgeClass: 'bg-rose-50 text-rose-600' }
+})
+
+function formatShortDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
 
 const selectedIndicatorLabel = computed(() => analysis.value?.name?.split(' · ')[0] || 'Value')
 

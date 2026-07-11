@@ -7,6 +7,7 @@ from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from sqlalchemy.orm import Session
 
 from app.api.endpoints.users import get_current_user
+from app.core.activity_log import log_action
 from app.core.gee_compute import NoImageryError, UnsupportedIndicatorError, compute_indicator
 from app.database import get_db
 from app.models.analysis import Analysis, AnalysisStatus
@@ -62,6 +63,49 @@ def _to_response(analysis: Analysis) -> dict:
     }
 
 
+def execute_analysis(analysis: Analysis, dataset: Dataset, indicator: Indicator, aoi_geojson: dict, db: Session, *, log_user_id: int | None) -> None:
+    """Runs the GEE computation for an already-persisted analysis row and updates it in place."""
+    started_at = datetime.now(timezone.utc)
+
+    log_action(db, user_id=log_user_id, action="Analysis Started", details=analysis.name)
+
+    try:
+        result = compute_indicator(
+            provider=dataset.provider,
+            gee_collection=dataset.gee_collection,
+            indicator_name=indicator.name,
+            aoi_geojson=aoi_geojson,
+            start_date=analysis.start_date.date().isoformat(),
+            end_date=analysis.end_date.date().isoformat(),
+            scale=analysis.scale,
+            cloud_percentage=analysis.cloud_percentage,
+        )
+        analysis.stats = {
+            **result["stats"],
+            "histogram": result["histogram"],
+            "timeseries": result["timeseries"],
+        }
+        analysis.tile_url = result["tile_url"]
+        analysis.result_path = result["png_url"]
+        analysis.status = AnalysisStatus.COMPLETED
+        analysis.error_message = None
+    except (UnsupportedIndicatorError, NoImageryError) as error:
+        analysis.status = AnalysisStatus.FAILED
+        analysis.error_message = str(error)
+    except Exception as error:
+        analysis.status = AnalysisStatus.FAILED
+        analysis.error_message = f"Earth Engine computation failed: {error}"
+
+    analysis.processing_time = (datetime.now(timezone.utc) - started_at).total_seconds()
+    db.commit()
+    db.refresh(analysis)
+
+    if analysis.status == AnalysisStatus.COMPLETED:
+        log_action(db, user_id=log_user_id, action="Analysis Completed", details=analysis.name)
+    else:
+        log_action(db, user_id=log_user_id, action="Analysis Failed", details=f"{analysis.name}: {analysis.error_message}")
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_analysis(
     payload: AnalysisCreateRequest,
@@ -85,8 +129,6 @@ def create_analysis(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid AOI geometry.")
 
-    started_at = datetime.now(timezone.utc)
-
     analysis = Analysis(
         project_id=project.id,
         user_id=current_user.id,
@@ -104,35 +146,7 @@ def create_analysis(
     db.commit()
     db.refresh(analysis)
 
-    try:
-        result = compute_indicator(
-            provider=dataset.provider,
-            gee_collection=dataset.gee_collection,
-            indicator_name=indicator.name,
-            aoi_geojson=payload.aoi,
-            start_date=payload.start_date,
-            end_date=payload.end_date,
-            scale=payload.resolution,
-            cloud_percentage=payload.cloud_percentage,
-        )
-        analysis.stats = {
-            **result["stats"],
-            "histogram": result["histogram"],
-            "timeseries": result["timeseries"],
-        }
-        analysis.tile_url = result["tile_url"]
-        analysis.result_path = result["png_url"]
-        analysis.status = AnalysisStatus.COMPLETED
-    except (UnsupportedIndicatorError, NoImageryError) as error:
-        analysis.status = AnalysisStatus.FAILED
-        analysis.error_message = str(error)
-    except Exception as error:
-        analysis.status = AnalysisStatus.FAILED
-        analysis.error_message = f"Earth Engine computation failed: {error}"
-
-    analysis.processing_time = (datetime.now(timezone.utc) - started_at).total_seconds()
-    db.commit()
-    db.refresh(analysis)
+    execute_analysis(analysis, dataset, indicator, payload.aoi, db, log_user_id=current_user.id)
 
     return _to_response(analysis)
 

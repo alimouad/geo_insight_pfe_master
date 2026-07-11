@@ -14,6 +14,7 @@ from shapely.geometry import mapping
 from sqlalchemy.orm import Session
 
 from app.api.endpoints.users import get_current_user
+from app.core.activity_log import log_action
 from app.core.gee_compute import NoImageryError, UnsupportedIndicatorError, get_export_image
 from app.database import get_db
 from app.models.analysis import Analysis
@@ -128,6 +129,38 @@ def _to_response(export: Export) -> Export:
     return export
 
 
+def execute_export(export: Export, analysis: Analysis, db: Session, *, log_user_id: int | None) -> None:
+    """Generates the export file for an already-persisted export row and updates it in place."""
+    extension = EXTENSIONS.get(export.type, "bin")
+
+    log_action(db, user_id=log_user_id, action="Export Started", details=export.file_name)
+
+    try:
+        content = _generate_file(export.type, analysis, db)
+        disk_path = STORAGE_DIR / f"{export.id}.{extension}"
+        disk_path.write_bytes(content)
+
+        export.file_url = f"/api/exports/download/{export.id}"
+        export.file_size = len(content)
+        export.status = "Completed"
+        export.error_message = None
+    except (NoImageryError, UnsupportedIndicatorError) as error:
+        export.status = "Failed"
+        export.error_message = str(error)
+    except Exception as error:
+        export.status = "Failed"
+        export.error_message = f"Export generation failed: {error}"
+
+    export.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(export)
+
+    if export.status == "Completed":
+        log_action(db, user_id=log_user_id, action="Export Finished", details=export.file_name)
+    else:
+        log_action(db, user_id=log_user_id, action="Export Failed", details=f"{export.file_name}: {export.error_message}")
+
+
 @router.post("", response_model=ExportResponse, status_code=status.HTTP_201_CREATED)
 def create_export(payload: ExportCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     analysis = _owned_analysis(payload.analysis_id, db, current_user)
@@ -150,24 +183,7 @@ def create_export(payload: ExportCreate, db: Session = Depends(get_db), current_
     db.commit()
     db.refresh(export)
 
-    try:
-        content = _generate_file(payload.type, analysis, db)
-        disk_path = STORAGE_DIR / f"{export.id}.{extension}"
-        disk_path.write_bytes(content)
-
-        export.file_url = f"/api/exports/download/{export.id}"
-        export.file_size = len(content)
-        export.status = "Completed"
-    except (NoImageryError, UnsupportedIndicatorError) as error:
-        export.status = "Failed"
-        export.error_message = str(error)
-    except Exception as error:
-        export.status = "Failed"
-        export.error_message = f"Export generation failed: {error}"
-
-    export.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(export)
+    execute_export(export, analysis, db, log_user_id=current_user.id)
     return export
 
 

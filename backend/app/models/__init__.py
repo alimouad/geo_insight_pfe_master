@@ -7,3 +7,4 @@ from app.models.export import Export
 from app.models.favorite import Favorite
 from app.models.notification import Notification
 from app.models.app_settings import AppSettings
+from app.models.system_log import SystemLog

@@ -1,14 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from geoalchemy2.shape import to_shape
 from pydantic import BaseModel, EmailStr
+from shapely.geometry import mapping
 from sqlalchemy.orm import Session
 
+from app.api.endpoints.analyses import execute_analysis
+from app.api.endpoints.exports import EXTENSIONS, STORAGE_DIR, execute_export
 from app.api.endpoints.users import get_current_admin
+from app.core.activity_log import log_action
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.analysis import Analysis, AnalysisStatus
 from app.models.app_settings import AppSettings
+from app.models.dataset import Dataset
 from app.models.export import Export
+from app.models.indicator import Indicator
 from app.models.project import Project
+from app.models.system_log import SystemLog
 from app.models.user import User, UserRole
 from app.schemas.project import ProjectResponse
 from app.schemas.user import UserResponse
@@ -127,6 +135,201 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 @router.get("/projects", response_model=list[ProjectResponse])
 def list_all_projects(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
     return db.query(Project).order_by(Project.created_at.desc()).all()
+
+
+# ---------------------------------------------------------------------------
+# Analysis Monitoring (all users)
+# ---------------------------------------------------------------------------
+
+
+def _analysis_to_admin_response(analysis: Analysis, owner: User | None, project: Project | None, indicator: Indicator | None) -> dict:
+    return {
+        "id": analysis.id,
+        "name": analysis.name,
+        "status": analysis.status,
+        "owner": owner.full_name if owner else None,
+        "owner_email": owner.email if owner else None,
+        "project": project.name if project else None,
+        "indicator": indicator.name if indicator else None,
+        "scale": analysis.scale,
+        "processing_time": analysis.processing_time,
+        "error_message": analysis.error_message,
+        "created_at": analysis.created_at,
+    }
+
+
+@router.get("/analyses")
+def list_all_analyses(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    analyses = db.query(Analysis).order_by(Analysis.created_at.desc()).all()
+    results = []
+    for analysis in analyses:
+        owner = db.query(User).filter(User.id == analysis.user_id).first()
+        project = db.query(Project).filter(Project.id == analysis.project_id).first()
+        indicator = db.query(Indicator).filter(Indicator.id == analysis.indicator_id).first()
+        results.append(_analysis_to_admin_response(analysis, owner, project, indicator))
+    return results
+
+
+@router.post("/analyses/{analysis_id}/retry")
+def retry_analysis(analysis_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+
+    dataset = db.query(Dataset).filter(Dataset.id == analysis.dataset_id).first()
+    indicator = db.query(Indicator).filter(Indicator.id == analysis.indicator_id).first()
+    if dataset is None or indicator is None:
+        raise HTTPException(status_code=400, detail="The dataset or indicator for this analysis is no longer available.")
+
+    analysis.status = AnalysisStatus.RUNNING
+    analysis.error_message = None
+    db.commit()
+    db.refresh(analysis)
+
+    aoi_geojson = mapping(to_shape(analysis.aoi))
+    execute_analysis(analysis, dataset, indicator, aoi_geojson, db, log_user_id=current_user.id)
+
+    owner = db.query(User).filter(User.id == analysis.user_id).first()
+    project = db.query(Project).filter(Project.id == analysis.project_id).first()
+    return _analysis_to_admin_response(analysis, owner, project, indicator)
+
+
+@router.post("/analyses/{analysis_id}/cancel")
+def cancel_analysis(analysis_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+
+    if analysis.status != AnalysisStatus.RUNNING:
+        raise HTTPException(status_code=400, detail="Only running analyses can be cancelled.")
+
+    analysis.status = AnalysisStatus.FAILED
+    analysis.error_message = "Cancelled by administrator."
+    db.commit()
+    db.refresh(analysis)
+
+    log_action(db, user_id=current_user.id, action="Analysis Cancelled", details=analysis.name)
+
+    owner = db.query(User).filter(User.id == analysis.user_id).first()
+    project = db.query(Project).filter(Project.id == analysis.project_id).first()
+    indicator = db.query(Indicator).filter(Indicator.id == analysis.indicator_id).first()
+    return _analysis_to_admin_response(analysis, owner, project, indicator)
+
+
+@router.delete("/analyses/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_analysis(analysis_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+
+    name = analysis.name
+    db.delete(analysis)
+    db.commit()
+
+    log_action(db, user_id=current_user.id, action="Analysis Deleted", details=name)
+
+
+# ---------------------------------------------------------------------------
+# Export Monitoring (all users)
+# ---------------------------------------------------------------------------
+
+
+def _export_to_admin_response(export: Export, analysis: Analysis | None, owner: User | None) -> dict:
+    return {
+        "id": export.id,
+        "file_name": export.file_name,
+        "type": export.type,
+        "status": export.status,
+        "file_size": export.file_size,
+        "download_count": export.download_count,
+        "owner": owner.full_name if owner else None,
+        "owner_email": owner.email if owner else None,
+        "analysis": analysis.name if analysis else None,
+        "error_message": export.error_message,
+        "created_at": export.created_at,
+    }
+
+
+@router.get("/exports")
+def list_all_exports(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    exports = db.query(Export).order_by(Export.created_at.desc()).all()
+    results = []
+    for export in exports:
+        analysis = db.query(Analysis).filter(Analysis.id == export.analysis_id).first()
+        owner = db.query(User).filter(User.id == analysis.user_id).first() if analysis else None
+        results.append(_export_to_admin_response(export, analysis, owner))
+    return results
+
+
+@router.post("/exports/{export_id}/retry")
+def retry_export(export_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    export = db.query(Export).filter(Export.id == export_id).first()
+    if export is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export not found.")
+
+    analysis = db.query(Analysis).filter(Analysis.id == export.analysis_id).first()
+    if analysis is None:
+        raise HTTPException(status_code=400, detail="The analysis for this export no longer exists.")
+
+    export.status = "Processing"
+    export.error_message = None
+    db.commit()
+    db.refresh(export)
+
+    execute_export(export, analysis, db, log_user_id=current_user.id)
+
+    owner = db.query(User).filter(User.id == analysis.user_id).first()
+    return _export_to_admin_response(export, analysis, owner)
+
+
+@router.delete("/exports/{export_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_export_admin(export_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    export = db.query(Export).filter(Export.id == export_id).first()
+    if export is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export not found.")
+
+    extension = EXTENSIONS.get(export.type, "bin")
+    disk_path = STORAGE_DIR / f"{export.id}.{extension}"
+    disk_path.unlink(missing_ok=True)
+
+    name = export.file_name
+    db.delete(export)
+    db.commit()
+
+    log_action(db, user_id=current_user.id, action="Export Deleted", details=name)
+
+
+# ---------------------------------------------------------------------------
+# System Logs
+# ---------------------------------------------------------------------------
+
+
+@router.get("/logs")
+def list_system_logs(
+    action: str | None = None,
+    limit: int = 200,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    query = db.query(SystemLog)
+    if action is not None:
+        query = query.filter(SystemLog.action == action)
+    logs = query.order_by(SystemLog.created_at.desc()).limit(min(limit, 500)).all()
+
+    results = []
+    for log in logs:
+        user = db.query(User).filter(User.id == log.user_id).first() if log.user_id else None
+        results.append(
+            {
+                "id": log.id,
+                "action": log.action,
+                "details": log.details,
+                "user": user.full_name if user else None,
+                "user_email": user.email if user else None,
+                "created_at": log.created_at,
+            }
+        )
+    return results
 
 
 # ---------------------------------------------------------------------------

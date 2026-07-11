@@ -395,6 +395,196 @@
           </div>
         </div>
 
+        <!-- Analysis Monitoring -->
+        <div v-if="activeTab === 'Analyses'" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">🛰️ Analysis Monitoring</h2>
+              <p class="text-sm text-slate-500">{{ filteredAnalyses.length }} of {{ allAnalyses.length }} analyses across every user.</p>
+            </div>
+            <label class="relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7" />
+                <path stroke-linecap="round" d="M21 21l-4.35-4.35" />
+              </svg>
+              <input v-model="analysisSearch" type="text" placeholder="Search analyses…" class="w-52 rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-[#6366f1]" />
+            </label>
+          </div>
+
+          <p v-if="analysesError" class="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600">{{ analysesError }}</p>
+
+          <div class="overflow-hidden rounded-[22px] border border-slate-100">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="px-4 py-3 font-medium">Name</th>
+                  <th class="px-4 py-3 font-medium">Owner</th>
+                  <th class="px-4 py-3 font-medium">Indicator</th>
+                  <th class="px-4 py-3 font-medium">Status</th>
+                  <th class="px-4 py-3 font-medium">Created</th>
+                  <th class="px-4 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="a in filteredAnalyses" :key="a.id" class="border-t border-slate-100 transition hover:bg-slate-50/80">
+                  <td class="px-4 py-3 font-medium text-slate-800">{{ a.name }}</td>
+                  <td class="px-4 py-3">
+                    <span class="text-slate-700">{{ a.owner || '—' }}</span>
+                    <span class="block text-xs text-slate-400">{{ a.owner_email }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-slate-500">{{ a.indicator || '—' }}</td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClass(a.status)">
+                      <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(a.status)"></span>
+                      {{ a.status }}
+                    </span>
+                    <p v-if="a.error_message" class="mt-1 max-w-xs truncate text-[11px] text-rose-500" :title="a.error_message">{{ a.error_message }}</p>
+                  </td>
+                  <td class="px-4 py-3 text-slate-500">{{ formatDate(a.created_at) }}</td>
+                  <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      v-if="a.status === 'Failed'"
+                      class="mr-3 text-xs font-semibold text-[#6366f1] hover:text-[#4f46e5] disabled:opacity-50"
+                      :disabled="analysisActionId === a.id"
+                      @click="retryAnalysis(a)"
+                    >
+                      {{ analysisActionId === a.id ? 'Retrying…' : 'Retry' }}
+                    </button>
+                    <button
+                      v-if="a.status === 'Running'"
+                      class="mr-3 text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                      :disabled="analysisActionId === a.id"
+                      @click="cancelAnalysis(a)"
+                    >
+                      Cancel
+                    </button>
+                    <button class="text-xs font-semibold text-rose-500 hover:text-rose-600" @click="deleteAnalysis(a)">Delete</button>
+                  </td>
+                </tr>
+                <tr v-if="filteredAnalyses.length === 0">
+                  <td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No analyses match "{{ analysisSearch }}".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Export Monitoring -->
+        <div v-if="activeTab === 'Exports'" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">📤 Export Monitoring</h2>
+              <p class="text-sm text-slate-500">{{ filteredExports.length }} of {{ allExports.length }} exports across every user.</p>
+            </div>
+            <label class="relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7" />
+                <path stroke-linecap="round" d="M21 21l-4.35-4.35" />
+              </svg>
+              <input v-model="exportSearch" type="text" placeholder="Search exports…" class="w-52 rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-[#6366f1]" />
+            </label>
+          </div>
+
+          <p v-if="exportsError" class="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600">{{ exportsError }}</p>
+
+          <div class="overflow-hidden rounded-[22px] border border-slate-100">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="px-4 py-3 font-medium">File</th>
+                  <th class="px-4 py-3 font-medium">Owner</th>
+                  <th class="px-4 py-3 font-medium">Analysis</th>
+                  <th class="px-4 py-3 font-medium">Type</th>
+                  <th class="px-4 py-3 font-medium">Status</th>
+                  <th class="px-4 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in filteredExports" :key="e.id" class="border-t border-slate-100 transition hover:bg-slate-50/80">
+                  <td class="px-4 py-3 font-medium text-slate-800">{{ e.file_name }}</td>
+                  <td class="px-4 py-3">
+                    <span class="text-slate-700">{{ e.owner || '—' }}</span>
+                    <span class="block text-xs text-slate-400">{{ e.owner_email }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-slate-500">{{ e.analysis || '—' }}</td>
+                  <td class="px-4 py-3">
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{{ e.type }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClass(e.status)">
+                      <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(e.status)"></span>
+                      {{ e.status }}
+                    </span>
+                    <p v-if="e.error_message" class="mt-1 max-w-xs truncate text-[11px] text-rose-500" :title="e.error_message">{{ e.error_message }}</p>
+                  </td>
+                  <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      v-if="e.status === 'Failed'"
+                      class="mr-3 text-xs font-semibold text-[#6366f1] hover:text-[#4f46e5] disabled:opacity-50"
+                      :disabled="exportActionId === e.id"
+                      @click="retryExport(e)"
+                    >
+                      {{ exportActionId === e.id ? 'Retrying…' : 'Retry' }}
+                    </button>
+                    <button class="text-xs font-semibold text-rose-500 hover:text-rose-600" @click="deleteExportAdmin(e)">Delete</button>
+                  </td>
+                </tr>
+                <tr v-if="filteredExports.length === 0">
+                  <td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No exports match "{{ exportSearch }}".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- System Logs -->
+        <div v-if="activeTab === 'Logs'" class="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">📜 System Logs</h2>
+              <p class="text-sm text-slate-500">Latest {{ logs.length }} platform events.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select v-model="logActionFilter" class="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#6366f1]" @change="loadLogs">
+                <option value="">All actions</option>
+                <option v-for="a in logActionOptions" :key="a" :value="a">{{ a }}</option>
+              </select>
+              <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50" @click="loadLogs">Refresh</button>
+            </div>
+          </div>
+
+          <p v-if="logsError" class="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600">{{ logsError }}</p>
+
+          <div class="overflow-hidden rounded-[22px] border border-slate-100">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="px-4 py-3 font-medium">Action</th>
+                  <th class="px-4 py-3 font-medium">User</th>
+                  <th class="px-4 py-3 font-medium">Details</th>
+                  <th class="px-4 py-3 font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="log in logs" :key="log.id" class="border-t border-slate-100 transition hover:bg-slate-50/80">
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" :class="logBadge(log.action)">{{ log.action }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-slate-700">{{ log.user || 'System' }}</span>
+                    <span v-if="log.user_email" class="block text-xs text-slate-400">{{ log.user_email }}</span>
+                  </td>
+                  <td class="px-4 py-3 max-w-sm truncate text-slate-500" :title="log.details">{{ log.details || '—' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-slate-500">{{ formatDateTime(log.created_at) }}</td>
+                </tr>
+                <tr v-if="logs.length === 0">
+                  <td colspan="4" class="px-4 py-10 text-center text-sm text-slate-400">No log entries yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- System Settings -->
         <div v-if="activeTab === 'Settings'" class="max-w-xl rounded-[28px] border border-slate-100 bg-white p-6 shadow-sm">
           <div class="flex items-center gap-3">
@@ -574,6 +764,9 @@ const datasets = ref([])
 const indicators = ref([])
 const allProjects = ref([])
 const appSettings = ref(null)
+const allAnalyses = ref([])
+const allExports = ref([])
+const logs = ref([])
 
 const usersError = ref('')
 const datasetsError = ref('')
@@ -581,6 +774,9 @@ const indicatorsError = ref('')
 const settingsError = ref('')
 const settingsSuccess = ref(false)
 const isSavingSettings = ref(false)
+const analysesError = ref('')
+const exportsError = ref('')
+const logsError = ref('')
 
 const providers = ['Sentinel-2', 'Landsat-8', 'MODIS', 'CHIRPS', 'WorldPop']
 const datasetCategories = ['Vegetation', 'Climate', 'Elevation', 'Population', 'Land Cover', 'Water', 'Urban']
@@ -707,13 +903,15 @@ async function loadAll() {
   await auth.load()
   if (!auth.isAdmin) return
   try {
-    const [dashRes, usersRes, datasetsRes, indicatorsRes, projectsRes, settingsRes] = await Promise.all([
+    const [dashRes, usersRes, datasetsRes, indicatorsRes, projectsRes, settingsRes, analysesRes, exportsRes] = await Promise.all([
       api.get('admin/dashboard'),
       api.get('admin/users'),
       api.get('datasets'),
       api.get('indicators'),
       api.get('admin/projects'),
       api.get('admin/settings'),
+      api.get('admin/analyses'),
+      api.get('admin/exports'),
     ])
     dashboard.value = dashRes.data
     users.value = usersRes.data
@@ -721,12 +919,148 @@ async function loadAll() {
     indicators.value = indicatorsRes.data
     allProjects.value = projectsRes.data
     appSettings.value = settingsRes.data
+    allAnalyses.value = analysesRes.data
+    allExports.value = exportsRes.data
   } catch (error) {
     usersError.value = error.response?.data?.detail || 'Unable to load admin data.'
   }
+  loadLogs()
 }
 
 onMounted(loadAll)
+
+// ---- Analysis Monitoring ----
+const analysisSearch = ref('')
+const analysisActionId = ref(null)
+const filteredAnalyses = computed(() => {
+  const q = analysisSearch.value.trim().toLowerCase()
+  if (!q) return allAnalyses.value
+  return allAnalyses.value.filter(
+    (a) => a.name.toLowerCase().includes(q) || (a.owner || '').toLowerCase().includes(q) || (a.owner_email || '').toLowerCase().includes(q),
+  )
+})
+
+async function retryAnalysis(analysis) {
+  analysisActionId.value = analysis.id
+  analysesError.value = ''
+  try {
+    const { data } = await api.post(`admin/analyses/${analysis.id}/retry`)
+    const idx = allAnalyses.value.findIndex((a) => a.id === analysis.id)
+    if (idx !== -1) allAnalyses.value[idx] = data
+  } catch (error) {
+    analysesError.value = error.response?.data?.detail || 'Unable to retry this analysis.'
+  } finally {
+    analysisActionId.value = null
+  }
+}
+
+async function cancelAnalysis(analysis) {
+  if (!confirm(`Cancel "${analysis.name}"?`)) return
+  analysisActionId.value = analysis.id
+  analysesError.value = ''
+  try {
+    const { data } = await api.post(`admin/analyses/${analysis.id}/cancel`)
+    const idx = allAnalyses.value.findIndex((a) => a.id === analysis.id)
+    if (idx !== -1) allAnalyses.value[idx] = data
+  } catch (error) {
+    analysesError.value = error.response?.data?.detail || 'Unable to cancel this analysis.'
+  } finally {
+    analysisActionId.value = null
+  }
+}
+
+async function deleteAnalysis(analysis) {
+  if (!confirm(`Delete "${analysis.name}"? This cannot be undone.`)) return
+  try {
+    await api.delete(`admin/analyses/${analysis.id}`)
+    allAnalyses.value = allAnalyses.value.filter((a) => a.id !== analysis.id)
+  } catch (error) {
+    analysesError.value = error.response?.data?.detail || 'Unable to delete this analysis.'
+  }
+}
+
+// ---- Export Monitoring ----
+const exportSearch = ref('')
+const exportActionId = ref(null)
+const filteredExports = computed(() => {
+  const q = exportSearch.value.trim().toLowerCase()
+  if (!q) return allExports.value
+  return allExports.value.filter(
+    (e) => e.file_name.toLowerCase().includes(q) || (e.owner || '').toLowerCase().includes(q) || (e.owner_email || '').toLowerCase().includes(q),
+  )
+})
+
+async function retryExport(exp) {
+  exportActionId.value = exp.id
+  exportsError.value = ''
+  try {
+    const { data } = await api.post(`admin/exports/${exp.id}/retry`)
+    const idx = allExports.value.findIndex((e) => e.id === exp.id)
+    if (idx !== -1) allExports.value[idx] = data
+  } catch (error) {
+    exportsError.value = error.response?.data?.detail || 'Unable to retry this export.'
+  } finally {
+    exportActionId.value = null
+  }
+}
+
+async function deleteExportAdmin(exp) {
+  if (!confirm(`Delete "${exp.file_name}"?`)) return
+  try {
+    await api.delete(`admin/exports/${exp.id}`)
+    allExports.value = allExports.value.filter((e) => e.id !== exp.id)
+  } catch (error) {
+    exportsError.value = error.response?.data?.detail || 'Unable to delete this export.'
+  }
+}
+
+// ---- System Logs ----
+const logActionFilter = ref('')
+const logActionOptions = [
+  'User Registered',
+  'User Login',
+  'Analysis Started',
+  'Analysis Completed',
+  'Analysis Failed',
+  'Analysis Cancelled',
+  'Analysis Deleted',
+  'Export Started',
+  'Export Finished',
+  'Export Failed',
+  'Export Deleted',
+]
+
+async function loadLogs() {
+  logsError.value = ''
+  try {
+    const { data } = await api.get('admin/logs', { params: logActionFilter.value ? { action: logActionFilter.value } : {} })
+    logs.value = data
+  } catch (error) {
+    logsError.value = error.response?.data?.detail || 'Unable to load system logs.'
+  }
+}
+
+const LOG_BADGES = {
+  'User Registered': 'bg-sky-50 text-sky-700',
+  'User Login': 'bg-sky-50 text-sky-700',
+  'Analysis Started': 'bg-amber-50 text-amber-700',
+  'Analysis Completed': 'bg-emerald-50 text-emerald-700',
+  'Analysis Failed': 'bg-rose-50 text-rose-700',
+  'Analysis Cancelled': 'bg-slate-100 text-slate-600',
+  'Analysis Deleted': 'bg-slate-100 text-slate-600',
+  'Export Started': 'bg-amber-50 text-amber-700',
+  'Export Finished': 'bg-emerald-50 text-emerald-700',
+  'Export Failed': 'bg-rose-50 text-rose-700',
+  'Export Deleted': 'bg-slate-100 text-slate-600',
+}
+function logBadge(action) {
+  return LOG_BADGES[action] || 'bg-indigo-50 text-indigo-700'
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 function statusClass(status) {
   if (status === 'Completed') return 'bg-emerald-50 text-emerald-700'
