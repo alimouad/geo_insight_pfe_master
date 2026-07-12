@@ -1,6 +1,6 @@
 <template>
-  <div class="relative">
-    <LMap :zoom="zoom" :center="center" :useGlobalLeaflet="false" class="h-full w-full">
+  <div class="relative h-full w-full">
+    <LMap ref="mapRef" :zoom="zoom" :center="center" :useGlobalLeaflet="false" class="h-full w-full" @ready="fitToPolygon">
       <LTileLayer
         :url="basemap.url"
         :attribution="basemap.attribution"
@@ -22,11 +22,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { LMap, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet'
 import { usePreferencesStore } from '@/stores/preferences'
 
-defineProps({
+const props = defineProps({
   center: { type: Array, required: true },
   polygon: { type: Array, default: () => [] },
   zoom: { type: Number, default: 11 },
@@ -36,4 +36,22 @@ defineProps({
 const preferences = usePreferencesStore()
 onMounted(() => preferences.load())
 const basemap = computed(() => preferences.basemap)
+
+const mapRef = ref(null)
+
+function fitToPolygon() {
+  const map = mapRef.value?.leafletObject
+  if (!map || !props.polygon || !props.polygon.length) return
+  const lats = props.polygon.map((c) => c[0])
+  const lngs = props.polygon.map((c) => c[1])
+  const sw = [Math.min(...lats), Math.min(...lngs)]
+  const ne = [Math.max(...lats), Math.max(...lngs)]
+  map.fitBounds([sw, ne], { padding: [24, 24], maxZoom: 15 })
+}
+
+watch(
+  () => props.polygon,
+  () => nextTick(fitToPolygon),
+  { deep: true, immediate: true },
+)
 </script>

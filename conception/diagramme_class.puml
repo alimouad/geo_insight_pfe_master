@@ -1,0 +1,286 @@
+@startuml diagramme_classe_geoinsight
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam class {
+  BackgroundColor White
+  ArrowColor #4338CA
+  BorderColor #444444
+}
+skinparam packageStyle rectangle
+hide empty members
+
+title GeoInsight — Diagramme de classes global
+
+' =====================================================================
+' Utilisateurs & rôles
+' =====================================================================
+enum UserRole {
+  ADMIN = "Admin"
+  USER = "User"
+}
+
+class User {
+  - id: int
+  - full_name: string
+  - email: string {unique}
+  - hashed_password: string
+  - role: UserRole = USER
+  - avatar: string
+  - organization: string
+  - country: string
+  - is_active: bool = true
+  - theme: string = "light"
+  - language: string = "en"
+  - default_basemap: string = "OpenStreetMap"Platform Intelligence Snapshot
+Deep visibility into operational load, data coverage, and user activity across the platform.
+  - default_projection: string = "EPSG:4326"
+  - created_at: datetime
+  - updated_at: datetime
+}
+
+class SystemLog {
+  - id: int
+  - user_id: int
+  - action: string
+  - details: text
+  - created_at: datetime
+}
+
+' =====================================================================
+' Projets
+' =====================================================================
+enum ProjectStatus {
+  RUNNING = "Running"
+  COMPLETED = "Completed"
+  ARCHIVED = "Archived"
+}
+
+class Project {
+  - id: int
+  - user_id: int
+  - name: string
+  - description: text
+  - geometry: text
+  - area: float
+  - status: ProjectStatus = RUNNING
+  - created_at: datetime
+  - updated_at: datetime
+}
+
+' =====================================================================
+' Jeux de données (catalogue)
+' =====================================================================
+enum DatasetProvider {
+  SENTINEL_2 = "Sentinel-2"
+  LANDSAT_8 = "Landsat-8"
+  MODIS = "MODIS"
+  CHIRPS = "CHIRPS"
+  WORLDPOP = "WorldPop"
+}
+
+enum DatasetCategory {
+  VEGETATION
+  CLIMATE
+  ELEVATION
+  POPULATION
+  LAND_COVER
+  WATER
+  URBAN
+}
+
+class Dataset {
+  - id: int
+  - name: string {unique}
+  - provider: DatasetProvider
+  - gee_collection: string {unique}
+  - description: text
+  - resolution: string
+  - category: DatasetCategory
+  - is_active: bool = true
+  - created_at: datetime
+}
+
+' =====================================================================
+' Indicateurs (catalogue)
+' =====================================================================
+enum IndicatorCategory {
+  VEGETATION
+  WATER
+  TEMPERATURE
+  CLIMATE
+  LAND_COVER
+  URBAN
+  POPULATION
+  DEGRADATION
+  RISK
+}
+
+class Indicator {
+  - id: int
+  - category: IndicatorCategory
+  - name: string {unique}
+  - description: text
+  - formula: text
+  - unit: string
+  - color: string
+  - icon: string
+  - supported_dataset: string
+  - default_resolution: string
+  - color_palette: text
+  - min_value: float
+  - max_value: float
+  - documentation: text
+  - applications: text
+  - is_active: bool = true
+  - created_at: datetime
+}
+
+' =====================================================================
+' Analyses (cœur du système)
+' =====================================================================
+enum AnalysisStatus {
+  PENDING = "Pending"
+  RUNNING = "Running"
+  COMPLETED = "Completed"
+  FAILED = "Failed"
+}
+
+class Analysis {
+  - id: int
+  - project_id: int
+  - user_id: int
+  - dataset_id: int
+  - indicator_id: int
+  - name: string
+  - description: text
+  - aoi: Geometry
+  - start_date: datetime
+  - end_date: datetime
+  - status: AnalysisStatus 
+  - gee_task_id: string
+  - gee_task_status: string
+  - scale: int
+  - cloud_percentage: float
+  - processing_time: float
+  - result_path: string
+  - tile_url: string
+  - stats: json
+  - error_message: text
+  - created_at: datetime
+  --
+  + execute_analysis(dataset, indicator, aoi, db, log_user_id)
+}
+
+' =====================================================================
+' Exports
+' =====================================================================
+enum ExportType {
+  GEOTIFF = "GeoTIFF"
+  PNG = "PNG"
+  CSV = "CSV"
+  GEOJSON = "GeoJSON"
+  SHAPEFILE = "Shapefile"
+}
+
+class Export {
+  - id: int
+  - analysis_id: int
+  - type: ExportType
+  - file_name: string
+  - file_url: string
+  - file_size: bigint
+  - mime_type: string
+  - status: string 
+  - error_message: string
+  - download_count: int
+  - created_at: datetime
+  - updated_at: datetime
+  --
+  + execute_export(analysis, db, log_user_id)
+}
+
+' =====================================================================
+' Favoris & notifications
+' =====================================================================
+class Favorite {
+  - id: int
+  - user_id: int
+  - analysis_id: int
+  - created_at: datetime
+  .. contrainte ..
+  {unique} (user_id, analysis_id)
+}
+
+' =====================================================================
+' Paramètres applicatifs (singleton)
+' =====================================================================
+class AppSettings <<singleton>> {
+  - id: int
+  - app_name: string 
+  - version: string 
+  - maintenance_mode: bool 
+  - updated_at: datetime
+}
+
+' =====================================================================
+' Services métier (sans état, non persistés)
+' =====================================================================
+class AuthService <<service>> {
+  + hash_password(pwd): string
+  + verify_password(pwd, hash): bool
+  + create_access_token(uid, exp_minutes): string
+  + decode_access_token(token): dict
+}
+
+class GEEComputeService <<service>> {
+  + compute_indicator(provider, collection, indicator,\n  aoi, start, end, scale, cloud): dict
+  + get_export_image(provider, collection, indicator,\n  aoi, start, end, scale, cloud): tuple
+}
+
+class ActivityLogger <<service>> {
+  + log_action(db, user_id, action, details)
+}
+
+' =====================================================================
+' Relations — Utilisateur
+' =====================================================================
+User "1" *-- "0..*" Project : possède
+User "1" *-- "0..*" Analysis : lance
+User "1" *-- "0..*" Favorite : enregistre
+User "1" -- "0..*" SystemLog : journalisé par
+User "1" -- "1" UserRole : a un rôle
+
+' =====================================================================
+' Relations — Projet / Analyse
+' =====================================================================
+Project "1" *-- "0..*" Analysis : contient
+Project "1" -- "1" ProjectStatus
+
+' =====================================================================
+' Relations — Analyse / catalogue
+' =====================================================================
+Dataset "1" -- "0..*" Analysis : utilisé par
+Indicator "1" -- "0..*" Analysis : calculé par
+Dataset "1" -- "1" DatasetProvider
+Dataset "1" -- "1" DatasetCategory
+Indicator "1" -- "1" IndicatorCategory
+Analysis "1" -- "1" AnalysisStatus
+
+' =====================================================================
+' Relations — Export / Favori
+' =====================================================================
+Analysis "1" *-- "0..*" Export : génère
+Analysis "1" *-- "0..*" Favorite : peut être favori
+Export "1" -- "1" ExportType
+
+' =====================================================================
+' Dépendances vers les services
+' =====================================================================
+Analysis ..> GEEComputeService : «use»
+Export ..> GEEComputeService : «use»
+User ..> AuthService : «use»
+Analysis ..> ActivityLogger : «use»
+Export ..> ActivityLogger : «use»
+AuthService ..> ActivityLogger : «use»
+
+@enduml

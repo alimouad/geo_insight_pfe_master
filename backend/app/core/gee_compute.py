@@ -89,8 +89,8 @@ BUILDERS = {
     (DatasetProvider.LANDSAT_8, "NDWI"): _landsat8_ndwi,
     (DatasetProvider.LANDSAT_8, "EVI"): _landsat8_evi,
     (DatasetProvider.LANDSAT_8, "SAVI"): _landsat8_savi,
-    (DatasetProvider.MODIS, "Température de surface"): _modis_lst,
-    (DatasetProvider.CHIRPS, "Précipitations"): _chirps_rainfall,
+    (DatasetProvider.MODIS, "Land Surface Temperature (Température de surface)"): _modis_lst,
+    (DatasetProvider.CHIRPS, "Precipitation (Précipitations)"): _chirps_rainfall,
 }
 
 VIS_PALETTES = {
@@ -98,21 +98,21 @@ VIS_PALETTES = {
     "EVI": {"min": -0.2, "max": 0.9, "palette": ["#a50026", "#fee08b", "#66bd63", "#1a9850"]},
     "SAVI": {"min": -0.2, "max": 0.9, "palette": ["#a50026", "#fee08b", "#66bd63", "#1a9850"]},
     "NDWI": {"min": -0.5, "max": 0.6, "palette": ["#f7fbff", "#6baed6", "#08306b"]},
-    "Température de surface": {"min": 0, "max": 45, "palette": ["#313695", "#fee090", "#a50026"]},
-    "Précipitations": {"min": 0, "max": 200, "palette": ["#ffffcc", "#41b6c4", "#225ea8"]},
-    "Biomasse végétale": {"min": 0, "max": 100, "palette": ["#ffffcc", "#78c679", "#004529"]},
-    "Humidité des sols": {"min": 0, "max": 50, "palette": ["#f6e8c3", "#5ab4ac", "#01665e"]},
-    "Disponibilité en eau": {"min": 0, "max": 100, "palette": ["#f7fbff", "#6baed6", "#08306b"]},
-    "Anomalies thermiques": {"min": -5, "max": 5, "palette": ["#2166ac", "#f7f7f7", "#b2182b"]},
-    "Sécheresse": {"min": -3, "max": 3, "palette": ["#a50026", "#ffffbf", "#313695"]},
-    "Évapotranspiration": {"min": 0, "max": 500, "palette": ["#ffffcc", "#41b6c4", "#225ea8"]},
+    "Land Surface Temperature (Température de surface)": {"min": 0, "max": 45, "palette": ["#313695", "#fee090", "#a50026"]},
+    "Precipitation (Précipitations)": {"min": 0, "max": 200, "palette": ["#ffffcc", "#41b6c4", "#225ea8"]},
+    "Vegetation Biomass (Biomasse végétale)": {"min": 0, "max": 100, "palette": ["#ffffcc", "#78c679", "#004529"]},
+    "Soil Moisture (Humidité des sols)": {"min": 0, "max": 50, "palette": ["#f6e8c3", "#5ab4ac", "#01665e"]},
+    "Water Availability (Disponibilité en eau)": {"min": 0, "max": 100, "palette": ["#f7fbff", "#6baed6", "#08306b"]},
+    "Thermal Anomalies (Anomalies thermiques)": {"min": -5, "max": 5, "palette": ["#2166ac", "#f7f7f7", "#b2182b"]},
+    "Drought Index (Sécheresse)": {"min": -3, "max": 3, "palette": ["#a50026", "#ffffbf", "#313695"]},
+    "Evapotranspiration (Évapotranspiration)": {"min": 0, "max": 500, "palette": ["#ffffcc", "#41b6c4", "#225ea8"]},
     "Land Cover": {"min": 10, "max": 100, "palette": ["#006400", "#ffbb22", "#ffff4c", "#f096ff", "#fa0000", "#b4b4b4", "#f0f0f0", "#0064c8", "#0096a0", "#00cf75", "#fae6a0"]},
-    "Changement d'occupation du sol": {"min": 0, "max": 100, "palette": ["#ffffcc", "#fd8d3c", "#800026"]},
-    "Densité de population": {"min": 0, "max": 2000, "palette": ["#ffffb2", "#fd8d3c", "#bd0026"]},
-    "Répartition spatiale": {"min": 0, "max": 50, "palette": ["#ffffb2", "#fd8d3c", "#bd0026"]},
-    "Dégradation": {"min": -0.05, "max": 0.05, "palette": ["#a50026", "#ffffbf", "#1a9850"]},
-    "Restauration": {"min": -0.05, "max": 0.05, "palette": ["#a50026", "#ffffbf", "#1a9850"]},
-    "Zones critiques": {"min": 0, "max": 100, "palette": ["#ffffcc", "#fd8d3c", "#800026"]},
+    "Land Cover Change (Changement d'occupation du sol)": {"min": 0, "max": 100, "palette": ["#ffffcc", "#fd8d3c", "#800026"]},
+    "Population Density (Densité de population)": {"min": 0, "max": 2000, "palette": ["#ffffb2", "#fd8d3c", "#bd0026"]},
+    "Population Distribution (Répartition spatiale)": {"min": 0, "max": 50, "palette": ["#ffffb2", "#fd8d3c", "#bd0026"]},
+    "Land Degradation (Dégradation)": {"min": -0.05, "max": 0.05, "palette": ["#a50026", "#ffffbf", "#1a9850"]},
+    "Land Restoration (Restauration)": {"min": -0.05, "max": 0.05, "palette": ["#a50026", "#ffffbf", "#1a9850"]},
+    "Critical Zones (Zones critiques)": {"min": 0, "max": 100, "palette": ["#ffffcc", "#fd8d3c", "#800026"]},
 }
 
 DEFAULT_VIS = {"min": -1, "max": 1, "palette": ["#440154", "#21908c", "#fde725"]}
@@ -225,7 +225,7 @@ def _timeseries_generic(collection, build_fn, geometry, scale, start_date, end_d
 
 
 def _composite(collection, indicator_name, builder):
-    if indicator_name == "Précipitations":
+    if indicator_name == "Precipitation (Précipitations)":
         return collection.select("precipitation").sum().rename("value")
     return builder(collection.median())
 
@@ -247,7 +247,7 @@ def _generic_pipeline(provider, gee_collection, indicator_name, builder, geometr
 
     value_image = _composite(collection, indicator_name, builder)
     vis_params = VIS_PALETTES.get(indicator_name, DEFAULT_VIS)
-    agg = "sum" if indicator_name == "Précipitations" else "mean"
+    agg = "sum" if indicator_name == "Precipitation (Précipitations)" else "mean"
     timeseries = _timeseries_generic(
         collection, lambda c: _composite(c, indicator_name, builder), geometry, scale, start_date, end_date, agg=agg
     )
@@ -278,9 +278,9 @@ def _population_indicator(indicator_name, geometry, start_date, end_date, scale)
     collection = all_years.filter(ee.Filter.calendarRange(latest_year, latest_year, "year"))
     pop = collection.select("population").mosaic()
 
-    if indicator_name == "Densité de population":
+    if indicator_name == "Population Density (Densité de population)":
         value_image = pop.divide(ee.Image.pixelArea()).multiply(1_000_000).rename("value")
-    else:  # Répartition spatiale — raw per-pixel headcount
+    else:  # Population Distribution (Répartition spatiale) — raw per-pixel headcount
         value_image = pop.rename("value")
 
     vis_params = VIS_PALETTES[indicator_name]
@@ -299,7 +299,7 @@ def _soil_moisture(geometry, start_date, end_date, scale):
     )
     _require_imagery(collection)
     value_image = collection.select("sm_surface").mean().multiply(100).rename("value")
-    vis_params = VIS_PALETTES["Humidité des sols"]
+    vis_params = VIS_PALETTES["Soil Moisture (Humidité des sols)"]
     timeseries = _timeseries_generic(
         collection, lambda c: c.select("sm_surface").mean().multiply(100).rename("value"), geometry, scale, start_date, end_date
     )
@@ -308,7 +308,7 @@ def _soil_moisture(geometry, start_date, end_date, scale):
 
 def _water_availability(geometry, scale):
     value_image = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").select("occurrence").rename("value")
-    vis_params = VIS_PALETTES["Disponibilité en eau"]
+    vis_params = VIS_PALETTES["Water Availability (Disponibilité en eau)"]
     return value_image, vis_params, []
 
 
@@ -328,7 +328,7 @@ def _thermal_anomaly(geometry, start_date, end_date, scale):
     baseline = baseline_collection.select("LST_Day_1km").mean().multiply(0.02).add(-273.15)
 
     value_image = current.subtract(baseline).rename("value")
-    vis_params = VIS_PALETTES["Anomalies thermiques"]
+    vis_params = VIS_PALETTES["Thermal Anomalies (Anomalies thermiques)"]
     return value_image, vis_params, []
 
 
@@ -355,7 +355,7 @@ def _drought(geometry, start_date, end_date, scale):
     baseline_std = baseline_years_collection.reduce(ee.Reducer.stdDev())
 
     value_image = current_sum.subtract(baseline_mean).divide(baseline_std.max(1)).rename("value")
-    vis_params = VIS_PALETTES["Sécheresse"]
+    vis_params = VIS_PALETTES["Drought Index (Sécheresse)"]
     return value_image, vis_params, []
 
 
@@ -363,7 +363,7 @@ def _evapotranspiration(geometry, start_date, end_date, scale):
     collection = ee.ImageCollection("MODIS/061/MOD16A2").filterBounds(geometry).filterDate(start_date, end_date)
     _require_imagery(collection)
     value_image = collection.select("ET").sum().multiply(0.1).rename("value")
-    vis_params = VIS_PALETTES["Évapotranspiration"]
+    vis_params = VIS_PALETTES["Evapotranspiration (Évapotranspiration)"]
     timeseries = _timeseries_generic(
         collection, lambda c: c.select("ET").sum().multiply(0.1).rename("value"), geometry, scale, start_date, end_date, agg="sum"
     )
@@ -390,7 +390,7 @@ def _land_cover_change(geometry, start_date, end_date, scale):
     label_b = period_b.select("label").mode()
     value_image = label_a.neq(label_b).multiply(100).rename("value")
 
-    vis_params = VIS_PALETTES["Changement d'occupation du sol"]
+    vis_params = VIS_PALETTES["Land Cover Change (Changement d'occupation du sol)"]
     return value_image, vis_params, []
 
 
@@ -424,14 +424,14 @@ def _ndvi_trend(geometry, end_date, scale):
 
 def _degradation_or_restoration(geometry, end_date, scale):
     slope, _ = _ndvi_trend(geometry, end_date, scale)
-    vis_params = VIS_PALETTES["Dégradation"]
+    vis_params = VIS_PALETTES["Land Degradation (Dégradation)"]
     return slope, vis_params, []
 
 
 def _critical_zones(geometry, end_date, scale):
     slope, _ = _ndvi_trend(geometry, end_date, scale)
     value_image = slope.lt(-0.01).multiply(100).rename("value")
-    vis_params = VIS_PALETTES["Zones critiques"]
+    vis_params = VIS_PALETTES["Critical Zones (Zones critiques)"]
     return value_image, vis_params, []
 
 
@@ -445,50 +445,50 @@ def _biomass_proxy(provider, gee_collection, geometry, start_date, end_date, sca
     ndvi = builder(collection.median())
     # Illustrative proxy only (AGB ~ 100 * NDVI^2) — not a calibrated biomass model.
     value_image = ndvi.pow(2).multiply(100).rename("value")
-    vis_params = VIS_PALETTES["Biomasse végétale"]
+    vis_params = VIS_PALETTES["Vegetation Biomass (Biomasse végétale)"]
     timeseries = _timeseries_generic(collection, lambda c: builder(c.median()).pow(2).multiply(100).rename("value"), geometry, scale, start_date, end_date)
     return value_image, vis_params, timeseries
 
 
 SPECIAL_INDICATORS = {
-    "Densité de population",
-    "Répartition spatiale",
-    "Humidité des sols",
-    "Disponibilité en eau",
-    "Anomalies thermiques",
-    "Sécheresse",
-    "Évapotranspiration",
+    "Population Density (Densité de population)",
+    "Population Distribution (Répartition spatiale)",
+    "Soil Moisture (Humidité des sols)",
+    "Water Availability (Disponibilité en eau)",
+    "Thermal Anomalies (Anomalies thermiques)",
+    "Drought Index (Sécheresse)",
+    "Evapotranspiration (Évapotranspiration)",
     "Land Cover",
-    "Changement d'occupation du sol",
-    "Dégradation",
-    "Restauration",
-    "Zones critiques",
-    "Biomasse végétale",
+    "Land Cover Change (Changement d'occupation du sol)",
+    "Land Degradation (Dégradation)",
+    "Land Restoration (Restauration)",
+    "Critical Zones (Zones critiques)",
+    "Vegetation Biomass (Biomasse végétale)",
 }
 
 
 def _compute_special(indicator_name, provider, gee_collection, geometry, start_date, end_date, scale, cloud_percentage):
-    if indicator_name in ("Densité de population", "Répartition spatiale"):
+    if indicator_name in ("Population Density (Densité de population)", "Population Distribution (Répartition spatiale)"):
         return _population_indicator(indicator_name, geometry, start_date, end_date, scale)
-    if indicator_name == "Humidité des sols":
+    if indicator_name == "Soil Moisture (Humidité des sols)":
         return _soil_moisture(geometry, start_date, end_date, scale)
-    if indicator_name == "Disponibilité en eau":
+    if indicator_name == "Water Availability (Disponibilité en eau)":
         return _water_availability(geometry, scale)
-    if indicator_name == "Anomalies thermiques":
+    if indicator_name == "Thermal Anomalies (Anomalies thermiques)":
         return _thermal_anomaly(geometry, start_date, end_date, scale)
-    if indicator_name == "Sécheresse":
+    if indicator_name == "Drought Index (Sécheresse)":
         return _drought(geometry, start_date, end_date, scale)
-    if indicator_name == "Évapotranspiration":
+    if indicator_name == "Evapotranspiration (Évapotranspiration)":
         return _evapotranspiration(geometry, start_date, end_date, scale)
     if indicator_name == "Land Cover":
         return _land_cover(geometry, scale)
-    if indicator_name == "Changement d'occupation du sol":
+    if indicator_name == "Land Cover Change (Changement d'occupation du sol)":
         return _land_cover_change(geometry, start_date, end_date, scale)
-    if indicator_name in ("Dégradation", "Restauration"):
+    if indicator_name in ("Land Degradation (Dégradation)", "Land Restoration (Restauration)"):
         return _degradation_or_restoration(geometry, end_date, scale)
-    if indicator_name == "Zones critiques":
+    if indicator_name == "Critical Zones (Zones critiques)":
         return _critical_zones(geometry, end_date, scale)
-    if indicator_name == "Biomasse végétale":
+    if indicator_name == "Vegetation Biomass (Biomasse végétale)":
         return _biomass_proxy(provider, gee_collection, geometry, start_date, end_date, scale, cloud_percentage)
     raise UnsupportedIndicatorError(f"No handler registered for {indicator_name}.")
 

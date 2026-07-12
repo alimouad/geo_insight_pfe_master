@@ -329,12 +329,22 @@ async function loadOptions() {
     form.value.projectId = preselectProjectId && projects.value.some((p) => p.id === preselectProjectId)
       ? preselectProjectId
       : projects.value[0]?.id ?? null
-    form.value.datasetId = datasets.value[0]?.id ?? null
 
     const preselectIndicatorId = route.query.indicator ? Number(route.query.indicator) : null
-    form.value.indicatorId = preselectIndicatorId && indicators.value.some((i) => i.id === preselectIndicatorId)
+    const preselectIndicator = preselectIndicatorId ? indicators.value.find((i) => i.id === preselectIndicatorId) : null
+
+    if (preselectIndicator && GENERIC_BUILDER_INDICATORS.includes(preselectIndicator.name)) {
+      form.value.datasetId = datasets.value.find((d) => GENERIC_BUILDER_PROVIDERS.includes(d.provider))?.id ?? datasets.value[0]?.id ?? null
+    } else if (preselectIndicator && DATASET_LOCKED_PROVIDERS[preselectIndicator.name]) {
+      const requiredProvider = DATASET_LOCKED_PROVIDERS[preselectIndicator.name]
+      form.value.datasetId = datasets.value.find((d) => d.provider === requiredProvider)?.id ?? datasets.value[0]?.id ?? null
+    } else {
+      form.value.datasetId = datasets.value[0]?.id ?? null
+    }
+
+    form.value.indicatorId = preselectIndicator && !UNSUPPORTED_INDICATORS.includes(preselectIndicator.name)
       ? preselectIndicatorId
-      : indicators.value[0]?.id ?? null
+      : indicatorsByCategory.value[0]?.items[0]?.id ?? null
 
     if (adminCountry.value) onCountryChange()
   } catch (error) {
@@ -371,17 +381,52 @@ async function applyAdminGeometry() {
 }
 
 const selectedProjectName = computed(() => projects.value.find((p) => p.id === form.value.projectId)?.name)
-const selectedDatasetName = computed(() => datasets.value.find((d) => d.id === form.value.datasetId)?.name)
+const selectedDataset = computed(() => datasets.value.find((d) => d.id === form.value.datasetId))
+const selectedDatasetName = computed(() => selectedDataset.value?.name)
 const selectedIndicator = computed(() => indicators.value.find((i) => i.id === form.value.indicatorId))
 const selectedIndicatorName = computed(() => selectedIndicator.value?.name)
+
+// Mirrors the real compute compatibility in backend/app/core/gee_compute.py:
+// - these 4 only have a band-math builder for Sentinel-2 / Landsat-8
+// - LST and Precipitation are hardcoded to one specific provider each
+// - Vulnerability/Exposure/Sensitivity have no handler implemented at all
+// - every other indicator (Land Cover, Population, Soil Moisture, Drought…) uses
+//   its own fixed GEE source internally and ignores the selected dataset entirely
+const GENERIC_BUILDER_INDICATORS = ['NDVI', 'EVI', 'SAVI', 'NDWI']
+const GENERIC_BUILDER_PROVIDERS = ['Sentinel-2', 'Landsat-8']
+const DATASET_LOCKED_PROVIDERS = {
+  'Land Surface Temperature (Température de surface)': 'MODIS',
+  'Precipitation (Précipitations)': 'CHIRPS',
+}
+const UNSUPPORTED_INDICATORS = ['Vulnerability (Vulnérabilité)', 'Exposure (Exposition)', 'Sensitivity (Sensibilité)']
+
+function isIndicatorRunnable(indicator, dataset) {
+  if (UNSUPPORTED_INDICATORS.includes(indicator.name)) return false
+  if (GENERIC_BUILDER_INDICATORS.includes(indicator.name)) {
+    return Boolean(dataset && GENERIC_BUILDER_PROVIDERS.includes(dataset.provider))
+  }
+  const lockedProvider = DATASET_LOCKED_PROVIDERS[indicator.name]
+  if (lockedProvider) {
+    return Boolean(dataset && dataset.provider === lockedProvider)
+  }
+  return true
+}
 
 const indicatorsByCategory = computed(() => {
   const groups = new Map()
   for (const indicator of indicators.value) {
+    if (!isIndicatorRunnable(indicator, selectedDataset.value)) continue
     if (!groups.has(indicator.category)) groups.set(indicator.category, [])
     groups.get(indicator.category).push(indicator)
   }
   return Array.from(groups.entries()).map(([category, items]) => ({ category, items }))
+})
+
+// keep the selected indicator valid whenever the dataset changes
+watch(selectedDataset, (dataset) => {
+  if (selectedIndicator.value && !isIndicatorRunnable(selectedIndicator.value, dataset)) {
+    form.value.indicatorId = indicatorsByCategory.value[0]?.items[0]?.id ?? null
+  }
 })
 
 const parameterMode = computed(() => {
@@ -450,9 +495,21 @@ async function handleGeojsonUpload(event) {
   try {
     const text = await file.text()
     const parsed = JSON.parse(text)
-    const geometry = parsed.type === 'FeatureCollection' ? parsed.features[0].geometry : parsed.type === 'Feature' ? parsed.geometry : parsed
+    const geometry =
+      parsed.type === 'FeatureCollection'
+        ? parsed.features?.[0]?.geometry
+        : parsed.type === 'Feature'
+          ? parsed.geometry
+          : parsed
+
+    if (!geometry || !['Polygon', 'MultiPolygon'].includes(geometry.type)) {
+      runError.value = 'This GeoJSON file must contain a Polygon or MultiPolygon geometry.'
+      return
+    }
+
     form.value.geometry = geometry
     form.value.area = Math.round(polygonAreaHectares(geometry) * 100) / 100
+    runError.value = ''
   } catch (error) {
     runError.value = 'Invalid GeoJSON file.'
   } finally {

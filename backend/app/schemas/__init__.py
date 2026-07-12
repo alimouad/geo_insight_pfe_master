@@ -5,4 +5,3 @@ from app.schemas.dataset import DatasetCreate, DatasetResponse
 from app.schemas.indicator import IndicatorCreate, IndicatorResponse
 from app.schemas.export import ExportCreate, ExportResponse
 from app.schemas.favorite import FavoriteCreate, FavoriteResponse
-from app.schemas.notification import NotificationCreate, NotificationResponse
