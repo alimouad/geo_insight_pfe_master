@@ -1,66 +1,103 @@
 <template>
-  <aside class="relative w-18 bg-white border-r border-slate-200 flex flex-col justify-between py-6 overflow-hidden">
-    <div class="pointer-events-none absolute inset-y-0 left-0 w-0.75 bg-[#6366f1]"></div>
-    <div class="pointer-events-none absolute -top-8 -left-10 h-28 w-28 rounded-full bg-[#6366f1]/12 blur-2xl"></div>
+  <aside class="relative flex w-60 shrink-0 flex-col justify-between overflow-hidden bg-slate-900 py-6">
+    <div class="pointer-events-none absolute -top-24 -left-16 h-56 w-56 rounded-full bg-[#6366f1]/20 blur-3xl"></div>
+    <div class="pointer-events-none absolute -bottom-24 -right-10 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl"></div>
 
-    <div class="flex flex-col items-center">
-      <router-link
-        to="/admin"
-        title="Admin Console"
-        class="w-10 h-10 rounded-full bg-[#6366f1] flex items-center justify-center text-white shadow-lg shadow-[#6366f1]/20 mb-8"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
+    <svg class="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 240 800" preserveAspectRatio="xMidYMid slice" fill="none">
+      <g stroke="#818cf8" stroke-width="1.5" opacity="0.14">
+        <path d="M-20 140C30 110 70 95 120 105s85 38 135 32 80-30 130-28" />
+        <path d="M-30 320C25 290 78 278 130 292s90 44 140 38 78-26 140-14" />
+        <path d="M-20 500C34 468 82 452 138 462s88 40 140 32 74-24 132-16" />
+        <path d="M-30 660C28 634 76 620 132 628s92 34 142 26 76-20 136-10" />
+      </g>
+      <g stroke="#22d3ee" stroke-width="1" opacity="0.1">
+        <path d="M-20 210C36 186 84 176 136 186s86 30 136 22 78-18 128-10" />
+        <path d="M-30 400C28 372 80 360 134 370s88 32 138 24 76-20 132-10" />
+        <path d="M-20 580C32 554 82 542 136 552s86 30 136 22 78-18 128-8" />
+      </g>
+      <circle cx="70" cy="240" r="3" fill="#6366f1" opacity="0.35" />
+      <circle cx="170" cy="450" r="3" fill="#22d3ee" opacity="0.3" />
+      <circle cx="100" cy="620" r="3" fill="#f59e0b" opacity="0.3" />
+    </svg>
+
+    <div class="relative flex flex-col">
+      <router-link to="/admin" class="mb-1 flex items-center gap-3 px-5">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/30">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </span>
+        <span>
+          <span class="block text-sm font-black tracking-tight text-white">GeoInsight</span>
+          <span class="block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Admin Console</span>
+        </span>
       </router-link>
 
-      <span class="mb-5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        Live
-      </span>
+      <div class="px-5 py-3">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          Live
+        </span>
+      </div>
 
-      <nav class="flex flex-col gap-2 w-full px-2">
+      <nav class="mt-2 flex flex-col gap-1 px-3">
         <button
           v-for="item in items"
           :key="item.id"
-          :title="item.label"
-          class="group relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
-          :class="modelValue === item.id ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'"
+          type="button"
+          class="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors"
+          :class="modelValue === item.id ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'"
           @click="$emit('update:modelValue', item.id)"
         >
-          <span v-if="modelValue === item.id" class="absolute -left-2 h-6 w-1.5 rounded-r-full bg-[#6366f1]"></span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="h-4.5 w-4.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
           </svg>
-          <span class="pointer-events-none absolute left-14 z-10 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-            {{ item.label }}
-          </span>
+          <span class="truncate">{{ item.label }}</span>
         </button>
       </nav>
     </div>
 
-    <div class="flex flex-col items-center gap-2 w-full px-2">
+    <div class="relative flex flex-col gap-3 px-3">
       <router-link
         to="/dashboard"
-        title="Exit Admin Deck"
-        class="group relative w-11 h-11 flex items-center justify-center rounded-xl text-rose-500 transition-colors hover:bg-rose-50"
+        class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/10"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-4.5 w-4.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         </svg>
-        <span class="pointer-events-none absolute left-14 z-10 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-          Exit Admin Deck
-        </span>
+        Exit Admin Deck
       </router-link>
+
+      <div class="flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-xs font-bold text-slate-900">
+          {{ initials }}
+        </span>
+        <span class="min-w-0">
+          <span class="block truncate text-xs font-semibold text-white">{{ auth.user?.full_name || 'Admin' }}</span>
+          <span class="block truncate text-[10px] text-slate-400">{{ auth.user?.email }}</span>
+        </span>
+      </div>
     </div>
   </aside>
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
 defineProps({
   modelValue: { type: String, required: true },
 })
 defineEmits(['update:modelValue'])
+
+const auth = useAuthStore()
+onMounted(() => auth.load())
+
+const initials = computed(() => {
+  const name = auth.user?.full_name
+  if (!name) return '?'
+  return name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+})
 
 const items = [
   { id: 'Dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V16zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V16z' },

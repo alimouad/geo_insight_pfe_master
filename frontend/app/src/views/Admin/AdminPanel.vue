@@ -51,6 +51,28 @@
             </div>
           </div>
 
+          <div class="relative overflow-hidden rounded-[28px] border border-slate-100 bg-gradient-to-br from-[#eef2ff] to-white p-5 shadow-sm">
+            <div class="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#6366f1]/10 blur-3xl"></div>
+            <div class="relative flex flex-wrap items-center justify-between gap-6">
+              <div class="flex items-center gap-4">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/25">
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[#4f46e5]">Geospatial Coverage</p>
+                  <p class="mt-1 text-3xl font-black tracking-tight text-slate-900">{{ formattedCoverage }} <span class="text-base font-bold text-slate-400">km²</span></p>
+                  <p class="mt-1 text-xs text-slate-500">Total area analyzed across every AOI on the platform.</p>
+                </div>
+              </div>
+              <div class="rounded-2xl border border-slate-100 bg-white/70 px-5 py-3 text-center">
+                <p class="text-2xl font-black text-slate-900">{{ dashboard?.distinct_regions ?? '—' }}</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Regions Monitored</p>
+              </div>
+            </div>
+          </div>
+
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <article
               v-for="card in dashboardCards"
@@ -781,6 +803,12 @@ const logsError = ref('')
 const providers = ['Sentinel-2', 'Landsat-8', 'MODIS', 'CHIRPS', 'WorldPop']
 const datasetCategories = ['Vegetation', 'Climate', 'Elevation', 'Population', 'Land Cover', 'Water', 'Urban']
 const indicatorCategories = ['Vegetation', 'Water', 'Temperature', 'Climate', 'Land Cover', 'Urban', 'Population', 'Land Degradation', 'Risk']
+
+const formattedCoverage = computed(() => {
+  const value = dashboard.value?.total_coverage_km2
+  if (typeof value !== 'number') return '—'
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+})
 
 const dashboardCards = computed(() => {
   const d = dashboard.value

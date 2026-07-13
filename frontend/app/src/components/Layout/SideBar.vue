@@ -1,12 +1,19 @@
 <template>
-  <aside class="w-[72px] bg-white border-r border-slate-200 flex flex-col justify-between py-6">
+  <aside class="relative w-18 bg-white border-r border-slate-200 flex flex-col justify-between py-6 overflow-hidden">
+    <div class="pointer-events-none absolute inset-y-0 left-0 w-0.75 bg-[#6366f1]"></div>
+    <div class="pointer-events-none absolute -top-8 -left-10 h-28 w-28 rounded-full bg-[#6366f1]/12 blur-2xl"></div>
+
     <div class="flex flex-col items-center">
-      <!-- Logo -->
-      <router-link to="/dashboard" class="w-10 h-10 rounded-full bg-[#6366f1] flex items-center justify-center text-white shadow-lg shadow-[#6366f1]/20 mb-8 cursor-pointer">
+      <router-link to="/dashboard" title="GeoInsight" class="w-10 h-10 rounded-full bg-[#6366f1] flex items-center justify-center text-white shadow-lg shadow-[#6366f1]/20 mb-4 cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </router-link>
+
+      <span class="mb-6 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        Live
+      </span>
 
       <!-- Navigation -->
       <nav class="flex flex-col gap-2 w-full px-2">
@@ -18,6 +25,7 @@
           class="group relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
           :class="isActive(item) ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'"
         >
+          <span v-if="isActive(item)" class="absolute -left-2 h-6 w-1.5 rounded-r-full bg-[#6366f1]"></span>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
           </svg>
@@ -37,9 +45,11 @@
         class="group relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
         :class="route.path.startsWith('/admin') ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-amber-500 hover:bg-amber-50'"
       >
+        <span v-if="route.path.startsWith('/admin')" class="absolute -left-2 h-6 w-1.5 rounded-r-full bg-[#6366f1]"></span>
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l1.912 3.874 4.276.622-3.094 3.016.73 4.259L12 12.75l-3.824 2.021.73-4.26-3.094-3.015 4.276-.622L12 3z" />
         </svg>
+        <span v-if="!route.path.startsWith('/admin')" class="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500"></span>
         <span class="pointer-events-none absolute left-14 z-10 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
           Admin Panel
         </span>
@@ -53,6 +63,7 @@
         class="group relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
         :class="isActive(item) ? 'bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/20' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'"
       >
+        <span v-if="isActive(item)" class="absolute -left-2 h-6 w-1.5 rounded-r-full bg-[#6366f1]"></span>
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path v-for="(d, i) in item.icon" :key="i" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="d" />
         </svg>
@@ -73,18 +84,33 @@
           Logout
         </span>
       </router-link>
+
+      <div class="mt-2 border-t border-slate-100 pt-3">
+        <router-link to="/profile" title="Profile" class="group relative flex h-9 w-9 items-center justify-center rounded-full bg-[#6366f1] text-xs font-bold text-white shadow-sm">
+          {{ initials }}
+          <span class="pointer-events-none absolute left-14 z-10 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            {{ auth.user?.full_name || 'Profile' }}
+          </span>
+        </router-link>
+      </div>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
 onMounted(() => auth.load())
+
+const initials = computed(() => {
+  const name = auth.user?.full_name
+  if (!name) return '?'
+  return name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+})
 
 const navItems = [
   {
@@ -132,12 +158,6 @@ const navItems = [
 ]
 
 const bottomItems = [
-  {
-    label: 'Profile',
-    to: '/profile',
-    matchPrefixes: ['/profile'],
-    icon: ['M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
-  },
   {
     label: 'Settings',
     to: '/settings',

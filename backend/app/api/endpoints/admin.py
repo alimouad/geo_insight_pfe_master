@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from geoalchemy2 import Geography
+from geoalchemy2.functions import ST_Area
 from geoalchemy2.shape import to_shape
 from pydantic import BaseModel, EmailStr
 from shapely.geometry import mapping
+from sqlalchemy import cast, func
 from sqlalchemy.orm import Session
 
 from app.api.endpoints.analyses import execute_analysis
@@ -31,6 +34,9 @@ router = APIRouter()
 
 @router.get("/dashboard")
 def get_admin_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    total_coverage_m2 = db.query(func.coalesce(func.sum(ST_Area(cast(Analysis.aoi, Geography))), 0)).scalar()
+    distinct_regions = db.query(Analysis.project_id).filter(Analysis.aoi.isnot(None)).distinct().count()
+
     return {
         "total_users": db.query(User).count(),
         "total_projects": db.query(Project).count(),
@@ -38,6 +44,8 @@ def get_admin_dashboard(db: Session = Depends(get_db), current_user: User = Depe
         "total_exports": db.query(Export).count(),
         "running_tasks": db.query(Analysis).filter(Analysis.status == AnalysisStatus.RUNNING).count(),
         "failed_tasks": db.query(Analysis).filter(Analysis.status == AnalysisStatus.FAILED).count(),
+        "total_coverage_km2": round(total_coverage_m2 / 1_000_000, 2),
+        "distinct_regions": distinct_regions,
     }
 
 

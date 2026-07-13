@@ -23,6 +23,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def no_store_cache(request, call_next):
+    # Different localhost ports (frontend dev server, pgAdmin, ...) all hit
+    # this API. Without an explicit no-store, browsers can serve a
+    # disk-cached response — including its Access-Control-Allow-Origin —
+    # for a request made from a different origin, breaking CORS silently.
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 app.include_router(api_router, prefix="/api")
 
 

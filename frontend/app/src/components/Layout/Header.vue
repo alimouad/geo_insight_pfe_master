@@ -1,12 +1,26 @@
 <template>
-  <header class="flex items-center justify-between gap-6 shrink-0">
-    <div class="min-w-0">
+  <header class="relative flex shrink-0 items-center justify-between gap-6 rounded-[28px] border border-slate-100 bg-white px-6 py-2 shadow-sm">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
+      <svg class="h-full w-full" viewBox="0 0 800 140" preserveAspectRatio="xMidYMid slice" fill="none">
+        <g stroke="#6366f1" stroke-width="1.5" opacity="0.06">
+          <path d="M-40 40C80 10 160 -4 260 12s170 46 270 36 160-38 270-30 170 30 260 12" />
+          <path d="M-40 96C90 66 170 54 270 68s168 42 268 32 158-32 268-24 168 24 258 8" />
+        </g>
+        <g stroke="#0ea5ff" stroke-width="1" opacity="0.05">
+          <path d="M-40 70C100 44 180 34 280 46s160 34 260 26 156-24 264-18 164 18 250 4" />
+        </g>
+        <circle cx="640" cy="34" r="2.5" fill="#6366f1" opacity="0.25" />
+        <circle cx="720" cy="88" r="2.5" fill="#0ea5ff" opacity="0.22" />
+      </svg>
+    </div>
+
+    <div class="relative min-w-0">
       <p class="text-xs font-semibold uppercase tracking-[0.3em] text-[#0ea5ff]">GeoInsight</p>
       <h1 class="mt-1 text-2xl font-black text-slate-900 tracking-tight">{{ title }}</h1>
       <p class="text-xs text-slate-400 mt-0.5 max-w-3xl">{{ subtitle }}</p>
     </div>
 
-    <div class="flex items-center gap-3">
+    <div class="relative flex items-center gap-3">
       <slot name="actions" />
 
       <div class="relative" ref="menuRef">
@@ -18,9 +32,9 @@
           <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#6366f1] text-xs font-bold text-white">
             {{ initials }}
           </span>
-          <span class="hidden text-left sm:block">
-            <span class="block text-sm font-semibold leading-tight text-slate-800">{{ auth.user?.full_name || 'Account' }}</span>
-            <span class="block text-[11px] leading-tight text-slate-400">{{ auth.user?.role || '—' }}</span>
+          <span class="hidden max-w-32 text-left sm:block">
+            <span class="block truncate text-sm font-semibold leading-tight text-slate-800">{{ auth.user?.full_name || 'Account' }}</span>
+            <span class="block truncate text-[11px] leading-tight text-slate-400">{{ auth.user?.role || '—' }}</span>
           </span>
           <svg class="h-4 w-4 text-slate-400 transition" :class="menuOpen ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
