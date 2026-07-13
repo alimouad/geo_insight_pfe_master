@@ -1,4 +1,6 @@
 import json
+import math
+import re
 import shutil
 import tempfile
 import zipfile
@@ -15,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.api.endpoints.users import get_current_user
 from app.core.activity_log import log_action
-from app.core.gee_compute import NoImageryError, UnsupportedIndicatorError, get_export_image
+from app.core.gee_compute import NoImageryError, UnsupportedIndicatorError, get_export_image, safe_download_scale
 from app.database import get_db
 from app.models.analysis import Analysis
 from app.models.dataset import Dataset
@@ -66,6 +68,29 @@ def _owned_export(export_id: int, db: Session, current_user: User) -> Export:
     return export
 
 
+_OVERSIZE_RE = re.compile(r"Total request size \((\d+) bytes\) must be less than or equal to (\d+) bytes")
+
+
+def _get_geotiff_download_url(value_image, geometry, requested_scale: int, max_attempts: int = 4) -> str:
+    """getDownloadURL is a single synchronous call capped at 48 MiB by Earth Engine.
+    safe_download_scale() gives a good first estimate, but actual GeoTIFF byte size
+    depends on internal encoding we can't predict exactly — so if GEE still rejects
+    it, read the *actual* size it reports back and coarsen the scale proportionally."""
+    scale = safe_download_scale(geometry, requested_scale)
+    last_error = None
+    for _ in range(max_attempts):
+        try:
+            return value_image.getDownloadURL({"region": geometry, "scale": scale, "format": "GEO_TIFF"})
+        except Exception as error:
+            match = _OVERSIZE_RE.search(str(error))
+            if not match:
+                raise
+            actual_bytes, limit_bytes = int(match.group(1)), int(match.group(2))
+            scale = math.ceil(scale * ((actual_bytes / (limit_bytes * 0.85)) ** 0.5))
+            last_error = error
+    raise last_error
+
+
 def _generate_file(export_type: ExportType, analysis: Analysis, db: Session) -> tuple[Path, int]:
     aoi_geojson = mapping(to_shape(analysis.aoi))
 
@@ -87,7 +112,7 @@ def _generate_file(export_type: ExportType, analysis: Analysis, db: Session) -> 
         )
 
         if export_type == ExportType.GEOTIFF:
-            url = value_image.getDownloadURL({"region": geometry, "scale": analysis.scale or 30, "format": "GEO_TIFF"})
+            url = _get_geotiff_download_url(value_image, geometry, analysis.scale or 30)
         else:
             url = value_image.getThumbURL({**vis_params, "region": geometry, "dimensions": 1024, "format": "png"})
 

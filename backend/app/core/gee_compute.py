@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 
 import ee
@@ -543,3 +544,21 @@ def get_export_image(
         provider, gee_collection, indicator_name, aoi_geojson, start_date, end_date, scale, cloud_percentage
     )
     return value_image, vis_params, geometry
+
+
+# ee.Image.getDownloadURL (synchronous, single-request download) hard-caps the
+# response at 48 MiB — large AOIs at fine resolution routinely blow past this
+# and fail with "Total request size (...) must be less than or equal to
+# 50331648 bytes." Coarsening the scale just enough to fit keeps the export a
+# single synchronous call instead of standing up an async Export.image task.
+GEE_DOWNLOAD_BYTE_LIMIT = 50_331_648
+BYTES_PER_PIXEL = 4  # single float32 "value" band
+
+
+def safe_download_scale(geometry: "ee.Geometry", requested_scale: int) -> int:
+    area_m2 = geometry.area(1).getInfo()
+    if not area_m2:
+        return requested_scale
+    safe_budget = GEE_DOWNLOAD_BYTE_LIMIT * 0.85  # margin for GeoTIFF headers/tiling
+    min_scale = (area_m2 * BYTES_PER_PIXEL / safe_budget) ** 0.5
+    return max(requested_scale, math.ceil(min_scale))

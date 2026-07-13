@@ -1,0 +1,64 @@
+services:
+  backend:
+    build: ./backend
+    container_name: backend
+    restart: always
+    expose:
+      - "8000"
+    env_file:
+      - ./backend/.env.prod
+    volumes:
+      - gee_credentials:/root/.config/earthengine
+      - exports_storage:/app/exports_storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: geoinsight
+      POSTGRES_USER: mouad
+    env_file:
+      - ./backend/.env.prod
+    volumes:
+      - pgtables:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mouad -d geoinsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend/app
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: /api
+    container_name: frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: mouad@gmail.com
+    env_file:
+      - ./backend/.env.prod
+    ports:
+      - "127.0.0.1:5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgtables:
+  gee_credentials:
+  exports_storage:
